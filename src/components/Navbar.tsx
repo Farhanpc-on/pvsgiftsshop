@@ -1,19 +1,47 @@
-import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, X, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import type { User } from "@supabase/supabase-js";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   const location = useLocation();
+  const navigate = useNavigate();
 
   const navItems = [
     { name: "Home", path: "/" },
     { name: "Products", path: "/products" },
     { name: "About", path: "/about" },
     { name: "Contact", path: "/contact" },
+    { name: "Admin", path: "/admin" },
   ];
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast.error("Error signing out");
+    } else {
+      toast.success("Signed out successfully");
+      navigate("/");
+    }
+  };
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -40,6 +68,18 @@ const Navbar = () => {
                 {item.name}
               </Link>
             ))}
+            {user ? (
+              <Button onClick={handleSignOut} variant="outline" size="sm">
+                Sign Out
+              </Button>
+            ) : (
+              <Link
+                to="/auth"
+                className="text-sm font-medium transition-colors hover:text-primary text-foreground/70"
+              >
+                Sign In
+              </Link>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -71,6 +111,19 @@ const Navbar = () => {
                 {item.name}
               </Link>
             ))}
+            {user ? (
+              <Button onClick={handleSignOut} variant="outline" size="sm" className="w-full">
+                Sign Out
+              </Button>
+            ) : (
+              <Link
+                to="/auth"
+                onClick={() => setIsOpen(false)}
+                className="block px-4 py-2 rounded-lg text-sm font-medium transition-colors text-foreground/70 hover:bg-secondary hover:text-foreground"
+              >
+                Sign In
+              </Link>
+            )}
           </div>
         )}
       </div>
