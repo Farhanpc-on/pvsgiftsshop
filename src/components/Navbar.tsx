@@ -10,6 +10,7 @@ import type { User } from "@supabase/supabase-js";
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -18,20 +19,43 @@ const Navbar = () => {
     { name: "Products", path: "/products" },
     { name: "About", path: "/about" },
     { name: "Contact", path: "/contact" },
+  ];
+
+  const adminNavItems = [
     { name: "Admin", path: "/admin" },
+    { name: "Users", path: "/users" },
   ];
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      if (session?.user) {
+        checkAdminStatus(session.user.id);
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
+      if (session?.user) {
+        checkAdminStatus(session.user.id);
+      } else {
+        setIsAdmin(false);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const checkAdminStatus = async (userId: string) => {
+    const { data } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+
+    setIsAdmin(!!data);
+  };
 
   const handleSignOut = async () => {
     const { error } = await supabase.auth.signOut();
@@ -57,6 +81,18 @@ const Navbar = () => {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-6">
             {navItems.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={cn(
+                  "text-sm font-medium transition-colors hover:text-primary",
+                  isActive(item.path) ? "text-primary" : "text-foreground/70"
+                )}
+              >
+                {item.name}
+              </Link>
+            ))}
+            {isAdmin && adminNavItems.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
@@ -97,6 +133,21 @@ const Navbar = () => {
         {isOpen && (
           <div className="md:hidden mt-4 pb-4 space-y-2 animate-in fade-in slide-in-from-top-2">
             {navItems.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={() => setIsOpen(false)}
+                className={cn(
+                  "block px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                  isActive(item.path)
+                    ? "bg-primary/10 text-primary"
+                    : "text-foreground/70 hover:bg-secondary hover:text-foreground"
+                )}
+              >
+                {item.name}
+              </Link>
+            ))}
+            {isAdmin && adminNavItems.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
